@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-pod "youtube-ios-player-helper", :path => "../../youtube-ios-player-helper.podspec"
+pod 'youtube-ios-player-helper', :path => '../../youtube-ios-player-helper.podspec'
 
-target "youtube-player-ios-exampleTests", :exclusive => true do
-    pod "OCMock", "3.1.2"
+target 'youtube-player-ios-example' do
+    pod 'OCMock', '3.1.2'
 end

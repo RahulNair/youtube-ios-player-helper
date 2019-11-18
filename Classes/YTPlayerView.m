@@ -392,9 +392,9 @@ NSString static *const kYTPlayerSyndicationRegexPattern = @"^https://tpc.googles
   return levels;
 }
 
-- (BOOL)webView:(UIWebView *)webView
+- (BOOL)webView:(WKWebView *)webView
     shouldStartLoadWithRequest:(NSURLRequest *)request
-                navigationType:(UIWebViewNavigationType)navigationType {
+                navigationType:(WKNavigationAction*)navigationType {
   if ([request.URL.host isEqual: self.originURL.host]) {
     return YES;
   } else if ([request.URL.scheme isEqual:@"ytplayer"]) {
@@ -406,7 +406,7 @@ NSString static *const kYTPlayerSyndicationRegexPattern = @"^https://tpc.googles
   return YES;
 }
 
-- (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error {
+- (void)webView:(WKWebView *)webView didFailLoadWithError:(NSError *)error {
   if (self.initialLoadingView) {
     [self.initialLoadingView removeFromSuperview];
   }
@@ -745,9 +745,7 @@ NSString static *const kYTPlayerSyndicationRegexPattern = @"^https://tpc.googles
 
   NSString *embedHTML = [NSString stringWithFormat:embedHTMLTemplate, playerVarsJsonString];
   [self.webView loadHTMLString:embedHTML baseURL: self.originURL];
-  [self.webView setDelegate:self];
-  self.webView.allowsInlineMediaPlayback = YES;
-  self.webView.mediaPlaybackRequiresUserAction = NO;
+  [self.webView setUIDelegate:self];
   
   if ([self.delegate respondsToSelector:@selector(playerViewPreferredInitialLoadingView:)]) {
     UIView *initialLoadingView = [self.delegate playerViewPreferredInitialLoadingView:self];
@@ -831,7 +829,28 @@ NSString static *const kYTPlayerSyndicationRegexPattern = @"^https://tpc.googles
  * @return JavaScript response from evaluating code.
  */
 - (NSString *)stringFromEvaluatingJavaScript:(NSString *)jsToExecute {
-  return [self.webView stringByEvaluatingJavaScriptFromString:jsToExecute];
+    __block NSString *resultString = nil;
+    __block BOOL finished = NO;
+    
+    [self.webView evaluateJavaScript:jsToExecute completionHandler:^(id result, NSError *error) {
+        if (error == nil) {
+            if (result != nil) {
+                resultString = [NSString stringWithFormat:@"%@", result];
+            }
+        } else {
+            NSLog(@"evaluateJavaScript error : %@", error.localizedDescription);
+            resultString = error.localizedDescription;
+        }
+        finished = YES;
+
+    }];
+    
+    while (!finished)
+    {
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
+    }
+    
+    return resultString;
 }
 
 /**
@@ -846,12 +865,16 @@ NSString static *const kYTPlayerSyndicationRegexPattern = @"^https://tpc.googles
 
 #pragma mark - Exposed for Testing
 
-- (void)setWebView:(UIWebView *)webView {
+- (void)setWebView:(WKWebView *)webView {
   _webView = webView;
 }
 
-- (UIWebView *)createNewWebView {
-    UIWebView *webView = [[UIWebView alloc] initWithFrame:self.bounds];
+- (WKWebView *)createNewWebView {
+    WKWebViewConfiguration *webConfiguration = [[WKWebViewConfiguration alloc] init];
+    webConfiguration.preferences.javaScriptEnabled = true ;
+    webConfiguration.allowsInlineMediaPlayback = true;
+    
+    WKWebView *webView = [[WKWebView alloc] initWithFrame:self.bounds configuration:webConfiguration];
     webView.autoresizingMask = (UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
     webView.scrollView.scrollEnabled = NO;
     webView.scrollView.bounces = NO;
@@ -881,5 +904,4 @@ NSString static *const kYTPlayerSyndicationRegexPattern = @"^https://tpc.googles
     });
     return frameworkBundle;
 }
-
 @end
